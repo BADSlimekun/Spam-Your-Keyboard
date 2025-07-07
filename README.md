@@ -18,13 +18,20 @@ Great for... undisclosable reasons. (And also a nice little Git playground 💅)
 ## Project Structure (Atleast should've written this on my own -_-)
 
  📦SpamYourKeyboard:
-
-	├── index.html
-	├── style.css
-	├── script.js
+ 
+	SpamYourKeyboard/
+	├── client/           # Frontend (HTML, CSS, JS)
+	│   ├── index.html
+	│   ├── style.css
+	│   └── script.js
+	│
+	├── server/           # Backend (Node + Express + Socket.IO)
+	│   ├── index.js
+	│   └── package.json
+	│
+	├── .gitignore
 	├── README.md
-	└── .gitignore
----
+	
 
 ## Goals
 
