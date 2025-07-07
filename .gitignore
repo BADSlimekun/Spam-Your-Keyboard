@@ -1,0 +1,16 @@
+# Ignore OS junk
+Thumbs.db
+desktop.ini
+
+# Ignore IDE/editor folders
+.vscode/
+.idea/
+
+# Node/React/JS stuff (if you ever use them)
+node_modules/
+dist/
+build/
+
+# Ignore .env files if you add API keys etc.
+.env
+.env.local
