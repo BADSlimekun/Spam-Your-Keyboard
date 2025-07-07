@@ -40,10 +40,10 @@ To test:
 #### Rough Overview:
  It will be a live web page hosted online accessible to mass online audience who can interact with the webpage. The webpage will be very simple, with a button in the center, which on clicking would increase the global counter above the button. The counter can be increased by anyone accessing the website, and it should be synchronized for all the users (as much as possible). 
 
-##### Inspiration:
+#### Inspiration:
  This project idea is inspired from million checkboxes website on which many people online could check or uncheck the whole gird of checkboxes one by one, and it would show up live for others as well. The creator learned a lot about optimizing how to handle the data incoming from multiple users, how to handle load on its webpage, and how to reduce latency for re-rendering and everything. I want to also build a similar project and learn a lot from it.
 
-##### Requirements:
+#### Requirements:
  A large count showing field which is centered. An addictive juicy button (I'm thinking to go with "F") Referencing "F to pay respects". Pressing the F (either the key, or on the screen) should play click sounds in their devices, as well as followed by small faint +1s floating from the key  (like in games). And for each press of F, the count should update. (Or we can simply make it to be keyboard spamming thing, I think more people would like to randomly spam the keyboard than clicking the screen or pressing a single button)
 
 #### Certain ideas:
