@@ -17,7 +17,8 @@ Great for... undisclosable reasons. (And also a nice little Git playground 💅)
 
 ## Project Structure (Atleast should've written this on my own -_-)
 
- 📦SpamYourKeyboard
+ 📦SpamYourKeyboard:
+
 	├── index.html
 	├── style.css
 	├── script.js
