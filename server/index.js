@@ -25,7 +25,7 @@ io.on('connection', (socket) => {
     //Handle increment events (the stuff that will increase the count)
     socket.on('increment', (amount = 1) => {
         globalCount += amount;
-        console.log('➕ ${socket.id} added ${amount} -> New Count: ${globalCount}');
+        console.log(`➕ ${socket.id} added ${amount} -> New Count: ${globalCount}`);
         io.emit('update', globalCount); //Broadcast the globalCount to everyone
     });
 
