@@ -53,10 +53,7 @@ function showFloatingPlusOne() {
 //ListenForInputs
 const keysPressed = new Set();
 
-document.addEventListener("keydown", (e) => {
-    if (keysPressed.has(e.code)) return; //ignore holding
-    keysPressed.add(e.code);
-
+function handleInput() {
     bubbleCount++;
     playClickSound();
     showFloatingPlusOne();
@@ -68,10 +65,32 @@ document.addEventListener("keydown", (e) => {
             bubbleCount = 0;
         }
     },1000); //update this in due time
+}
+
+document.addEventListener("keydown", (e) => {
+    if (keysPressed.has(e.code)) return; //ignore holding
+    keysPressed.add(e.code);
+
+    handleInput();
 });
 
 document.addEventListener("keyup", (e) => {
     keysPressed.delete(e.code);
+});
+
+document.addEventListener("mousedown", () => {
+    handleInput();
+});
+
+//I spotted an audio leak bug, but now its not bugging
+//Stiiilllll just to be safe, tab switching audio forgetter :D
+window.addEventListener("visiblitychange", () => {
+    if (document.hidden) {
+        audioPool.forEach( a => {
+            a.pause();
+            a.currentTime = 0;
+        });
+    }
 });
 
 //SocketPocket:D
