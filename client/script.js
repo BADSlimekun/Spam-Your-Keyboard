@@ -8,21 +8,33 @@ let bubbleCount = 0;
 let bubbleTimeOut = null;
 
 //Sounds
-const clickSoundSrc = 'click.mp3';
-const clickSoundTemplate = new Audio(clickSoundSrc);
-clickSoundTemplate.preload = 'auto';
-clickSoundTemplate.load();
-clickSoundTemplate.volume = 1.0;
+const POOL_SIZE = 100;
+const audioPool = [];
+let audioIndex = 0;
+const audioVolume = 1.0;
+const audioSrc = 'click.mp3'
+
+for (let i = 0; i<POOL_SIZE; i++) 
+{
+    const audio = new Audio(audioSrc);
+    audio.preload = 'auto';
+    audio.load();
+    audio.volume = audioVolume;
+    audioPool.push(audio);
+}
 
 function playClickSound() {
-    try {
-        const sound = new Audio(clickSoundSrc); //fresh instance
-        sound.volume = clickSoundTemplate.volume;
-        sound.play().catch(() => {}); //prevent promise errors
-        
+    const sound = audioPool[audioIndex];
+
+    try { 
+        sound.pause();
+        sound.currentTime = 0;
+        sound.play().catch(() => {});
     } catch(e) {
         console.error("Sound Play Error:", e);
     }
+    //Circular movement in the pool of index per call
+    audioIndex = (audioIndex + 1) % POOL_SIZE;
 }
 
 //Animations
