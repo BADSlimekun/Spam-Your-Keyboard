@@ -8,7 +8,7 @@ let bubbleCount = 0;
 let bubbleTimeOut = null;
 
 //Sounds
-const POOL_SIZE = 100;
+const POOL_SIZE = 20;
 const audioPool = [];
 let audioIndex = 0;
 const audioVolume = 1.0;
@@ -20,19 +20,31 @@ for (let i = 0; i<POOL_SIZE; i++)
     audio.preload = 'auto';
     audio.load();
     audio.volume = audioVolume;
+
+    //Parameters to track of the audio is still playing
+    audio._isPlaying = false;
+    audio.onended = () => { audio._isPlaying = false; };
+
     audioPool.push(audio);
 }
 
 function playClickSound() {
     const sound = audioPool[audioIndex];
 
-    try { 
-        sound.pause();
-        sound.currentTime = 0;
-        sound.play().catch(() => {});
+    try {
+        if (sound._isPlaying) { 
+            sound.pause();
+            sound.currentTime = 0;
+        }
     } catch(e) {
         console.error("Sound Play Error:", e);
     }
+
+    sound._isPlaying = true;
+    sound.play().catch(() => {
+        sound._isPlaying = false;
+    });
+
     //Circular movement in the pool of index per call
     audioIndex = (audioIndex + 1) % POOL_SIZE;
 }
@@ -50,11 +62,39 @@ function showFloatingPlusOne() {
     },1500); //removal after animation
 }
 
+const bubbleDisplay = document.getElementById("bubble-display");
+function updateBubbleDisplay() {
+    bubbleDisplay.textContent = `${bubbleCount}`;
+    if (bubbleCount > 5) {
+        bubbleDisplay.classList.add('combo');
+    } else {
+        bubbleDisplay.classList.remove('combo');
+    }
+}
+
+const flash = document.getElementById("combo-flash");
+function showComboFlash(word) {
+    flash.textContent = `COMBO: ${word}! +100`;
+    flash.style.opacity = 1;
+    setTimeout(() => {
+        flash.style.opacity = 0;
+    },1000);
+}
+
 //ListenForInputs
 const keysPressed = new Set();
+const bonusLetters = ['F', 'A', 'S', 'T']; //take input from an external list
 
-function handleInput() {
-    bubbleCount++;
+function handleInput(e) {
+    let baseValue = 1;
+
+    //Check for bonus letters
+    if (e && bonusLetters.includes(e.key.toUpperCase())) {
+        baseValue += 1;
+    }
+
+    bubbleCount += baseValue;
+    updateBubbleDisplay();
     playClickSound();
     showFloatingPlusOne();
 
@@ -63,6 +103,7 @@ function handleInput() {
         if (bubbleCount > 0) {
             socket.emit("increment", bubbleCount);
             bubbleCount = 0;
+            updateBubbleDisplay();
         }
     },1000); //update this in due time
 }
@@ -82,6 +123,26 @@ document.addEventListener("mousedown", () => {
     handleInput();
 });
 
+//Word based Combo system
+let wordStreak = '';
+const bonusWords = ['FAST', 'STRUCT', 'CLASS', 'DOCUMENT'];
+
+document.addEventListener("keydown", (e) => {
+  const char = e.key.toUpperCase();
+  if (!/^[A-Z]$/.test(char)) return; //Check for valid chara
+
+  wordStreak += char;
+  wordStreak = wordStreak.slice(-11); //Limit to last 10 chars
+
+  for (const word of bonusWords) {
+    if (wordStreak.endsWith(word)) {
+      bubbleCount += 100;
+      wordStreak = ''; //Reset after hit
+      showComboFlash(word);
+    }
+  }
+});
+
 //I spotted an audio leak bug, but now its not bugging
 //Stiiilllll just to be safe, tab switching audio forgetter :D
 window.addEventListener("visiblitychange", () => {
@@ -89,6 +150,7 @@ window.addEventListener("visiblitychange", () => {
         audioPool.forEach( a => {
             a.pause();
             a.currentTime = 0;
+            a._isPlaying = false;
         });
     }
 });
