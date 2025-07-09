@@ -8,6 +8,7 @@ let bubbleCount = 0;
 let bubbleTimeOut = null;
 
 //Sounds
+/*
 const POOL_SIZE = 20;
 const audioPool = [];
 let audioIndex = 0;
@@ -48,55 +49,94 @@ function playClickSound() {
     //Circular movement in the pool of index per call
     audioIndex = (audioIndex + 1) % POOL_SIZE;
 }
+*/
+
+//Sounds 2.0 WebAudio soundpool
+let audioCtx;
+let clickBuffer = null;
+
+// Load once
+async function initWebAudio() {
+    console.log("🔊 Initializing WebAudio...");
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    const response = await fetch('click.mp3');
+    const arrayBuffer = await response.arrayBuffer();
+    clickBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+}
+
+window.addEventListener("click", () => {
+    if (audioCtx && audioCtx.state == "suspended") {
+        audioCtx.resume().then(() => {
+            console.log("AudioContext resumed...");
+        });
+    }
+});
+
+function playClickSound() {
+    if (!clickBuffer || !audioCtx) return;
+
+    const source = audioCtx.createBufferSource();
+    source.buffer = clickBuffer;
+
+    const gainNode = audioCtx.createGain();
+    gainNode.gain.value = 1.0; // volume
+
+    source.connect(gainNode).connect(audioCtx.destination);
+    source.start(0);
+}
+
 
 //Animations
-function showFloatingPlusOne() {
+function showFloatingPlusOne(e) {
     const plus = document.createElement("div");
-    plus.textContent = "+1";
+    plus.textContent = `+${e}`;
     plus.className = "floating-plus-one";
     plus.style.left = Math.random()*80 + 10 + "%"; //spawn em at random x
     document.body.appendChild(plus);
     
     setTimeout(() => {
         plus.remove();
-    },1500); //removal after animation
+    },1000); //removal after animation
 }
 
 const bubbleDisplay = document.getElementById("bubble-display");
 function updateBubbleDisplay() {
     bubbleDisplay.textContent = `${bubbleCount}`;
-    if (bubbleCount > 5) {
+    if (bubbleCount > 100) {
         bubbleDisplay.classList.add('combo');
     } else {
         bubbleDisplay.classList.remove('combo');
     }
 }
 
-const flash = document.getElementById("combo-flash");
 function showComboFlash(word) {
+    const flash = document.createElement("div");
     flash.textContent = `COMBO: ${word}! +100`;
-    flash.style.opacity = 1;
+    flash.className = "combo-flash";
+    flash.style.left = Math.random()*10 + 40 + "%"; //spawn em at random x
+    document.body.appendChild(flash);
     setTimeout(() => {
-        flash.style.opacity = 0;
+        flash.remove();
     },1000);
 }
 
 //ListenForInputs
 const keysPressed = new Set();
-const bonusLetters = ['F', 'A', 'S', 'T']; //take input from an external list
+const bonusLetters = ['f', 'a', 's', 't']; //take input from an external list
 
 function handleInput(e) {
     let baseValue = 1;
 
     //Check for bonus letters
-    if (e && bonusLetters.includes(e.key.toUpperCase())) {
-        baseValue += 1;
+    if (e && bonusLetters.includes(e.key)) {
+        baseValue = 2;
     }
 
     bubbleCount += baseValue;
     updateBubbleDisplay();
     playClickSound();
-    showFloatingPlusOne();
+    showFloatingPlusOne(baseValue);
 
     clearTimeout(bubbleTimeOut);
     bubbleTimeOut = setTimeout(() => {
@@ -105,7 +145,7 @@ function handleInput(e) {
             bubbleCount = 0;
             updateBubbleDisplay();
         }
-    },1000); //update this in due time
+    },750); //update this in due time
 }
 
 document.addEventListener("keydown", (e) => {
@@ -145,15 +185,17 @@ document.addEventListener("keydown", (e) => {
 
 //I spotted an audio leak bug, but now its not bugging
 //Stiiilllll just to be safe, tab switching audio forgetter :D
-window.addEventListener("visiblitychange", () => {
-    if (document.hidden) {
-        audioPool.forEach( a => {
-            a.pause();
-            a.currentTime = 0;
-            a._isPlaying = false;
-        });
+window.addEventListener("visibilitychange", () => {
+    if (document.hidden && audioCtx.state == "running") {
+        audioCtx.suspend();
+    } else if (!document.hidden && audioCtx && audioCtx.state == "suspended") {
+        audioCtx.resume();
     }
 });
+
+window.onload = () => {
+    initWebAudio();
+};
 
 //SocketPocket:D
 socket.on("connect", () => {
