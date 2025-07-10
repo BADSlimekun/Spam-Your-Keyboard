@@ -13,6 +13,7 @@
     bottom: 20px;
     font-size: 24px;
     color: #000000;
+    -float-distance: -500px;
     animation: floatUp 1s ease-out forwards;
     pointer-events: none;
     user-select: none; 
@@ -25,7 +26,7 @@
     }
     100% {
         opacity: 0;
-        transform: translateY(-500px);
+        transform: translateY(var(-float-distance,-300px));
     }
 }
 
