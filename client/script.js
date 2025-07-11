@@ -4,58 +4,33 @@ const socket = io("http://localhost:3000");
 //PROGRAM
 const counterEl = document.getElementById("counter");
 
-let bubbleCount = 0;
-let bubbleTimeOut = null;
-
-//Sounds
-/*
-const POOL_SIZE = 20;
-const audioPool = [];
-let audioIndex = 0;
-const audioVolume = 1.0;
-const audioSrc = 'click.mp3'
-
-for (let i = 0; i<POOL_SIZE; i++) 
-{
-    const audio = new Audio(audioSrc);
-    audio.preload = 'auto';
-    audio.load();
-    audio.volume = audioVolume;
-
-    //Parameters to track of the audio is still playing
-    audio._isPlaying = false;
-    audio.onended = () => { audio._isPlaying = false; };
-
-    audioPool.push(audio);
-}
-
-function playClickSound() {
-    const sound = audioPool[audioIndex];
-
-    try {
-        if (sound._isPlaying) { 
-            sound.pause();
-            sound.currentTime = 0;
-        }
-    } catch(e) {
-        console.error("Sound Play Error:", e);
+//User Personalization()
+//Generate unique Id and store it in localStorage
+const getOrCreateUserID = () => {
+    let id = localStorage.getItem('userID');
+    if (!id) {
+        id = crypto.randomUUID();
+        localStorage.setItem('userID', id); //this is client-native
     }
-
-    sound._isPlaying = true;
-    sound.play().catch(() => {
-        sound._isPlaying = false;
-    });
-
-    //Circular movement in the pool of index per call
-    audioIndex = (audioIndex + 1) % POOL_SIZE;
+    return id;
 }
-*/
+
+const getOrCreateUserName = () => {
+    let name = localStorage.getItem('username');
+    if (!name) {
+        name = prompt("Enter thy nickname (or don't T~T): ") || `:D -${Math.floor(Math.random()*10000)}`;
+        localStorage.setItem('username', name);
+    }
+    return name;
+}
+
+//Sounds (Older Html Audio pool removed -- Check version control)
 
 //Sounds 2.0 WebAudio soundpool
 let audioCtx;
 let clickBuffer = null;
 
-// Load once
+//Load once
 async function initWebAudio() {
     console.log("🔊 Initializing WebAudio...");
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -100,6 +75,22 @@ function showFloatingPlusOne(e) {
     },1000); //removal after animation
 }
 
+//Leaderboard()
+const leaderboardList = document.getElementById("leaderboard-list"); //refer html <ol>
+
+socket.on("leaderboard", (leaders) => {
+    leaderboardList.innerHTML = '';
+    leaders.forEach(({ username, total }) => {
+        const li = document.createElement("li");
+        li.textContent = `${username}: ${total}`;
+        leaderboardList.appendChild(li);
+    });
+});
+
+//Bubble Physics :D
+let bubbleCount = 0;
+let bubbleTimeOut = null;
+
 const bubbleDisplay = document.getElementById("bubble-display");
 function updateBubbleDisplay() {
     bubbleDisplay.textContent = `${bubbleCount}`;
@@ -110,6 +101,7 @@ function updateBubbleDisplay() {
     }
 }
 
+//Special word :D
 function showComboFlash(word) {
     const flash = document.createElement("div");
     flash.textContent = `COMBO: ${word}! +100`;
@@ -121,7 +113,27 @@ function showComboFlash(word) {
     },1000);
 }
 
-//ListenForInputs
+//Special word based Combo system
+let wordStreak = '';
+const bonusWords = ['FAST', 'STRUCT', 'CLASS', 'DOCUMENT'];
+
+document.addEventListener("keydown", (e) => {
+    const char = e.key.toUpperCase();
+    if (!/^[A-Z]$/.test(char)) return; //Check for valid chara
+
+    wordStreak += char;
+    wordStreak = wordStreak.slice(-11); //Limit to last 10 chars
+
+    for (const word of bonusWords) {
+        if (wordStreak.endsWith(word)) {
+        bubbleCount += 100;
+        wordStreak = ''; //Reset after hit
+        showComboFlash(word);
+        }
+    }
+});
+
+//ListenForInputs shhhhh :D
 const keysPressed = new Set();
 const bonusLetters = ['f', 'a', 's', 't']; //take input from an external list
 
@@ -141,7 +153,11 @@ function handleInput(e) {
     clearTimeout(bubbleTimeOut);
     bubbleTimeOut = setTimeout(() => {
         if (bubbleCount > 0) {
-            socket.emit("increment", bubbleCount);
+            socket.emit("increment", {
+                userID: getOrCreateUserID(),
+                username: getOrCreateUserName(),
+                amount: bubbleCount
+            });
             bubbleCount = 0;
             updateBubbleDisplay();
         }
@@ -161,26 +177,6 @@ document.addEventListener("keyup", (e) => {
 
 document.addEventListener("mousedown", () => {
     handleInput();
-});
-
-//Word based Combo system
-let wordStreak = '';
-const bonusWords = ['FAST', 'STRUCT', 'CLASS', 'DOCUMENT'];
-
-document.addEventListener("keydown", (e) => {
-  const char = e.key.toUpperCase();
-  if (!/^[A-Z]$/.test(char)) return; //Check for valid chara
-
-  wordStreak += char;
-  wordStreak = wordStreak.slice(-11); //Limit to last 10 chars
-
-  for (const word of bonusWords) {
-    if (wordStreak.endsWith(word)) {
-      bubbleCount += 100;
-      wordStreak = ''; //Reset after hit
-      showComboFlash(word);
-    }
-  }
 });
 
 //I spotted an audio leak bug, but now its not bugging

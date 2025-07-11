@@ -14,3 +14,6 @@ build/
 # Ignore .env files if you add API keys etc.
 .env
 .env.local
+
+#Testing JSON stuff
+/server/globalscores.json
