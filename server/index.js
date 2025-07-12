@@ -5,85 +5,108 @@ const { Server } = require('socket.io');
 const cors = require('cors'); //What is this used for?
 const fs = require('fs');
 const path = require('path');
+const { Redis } = require('@upstash/redis');
+require('dotenv').config();
 
 //PROGRAM
+
 const app = express();
+app.use(cors({ origin: "*" }));
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: "*", //we show all origins fr now
+        origin: "*", //we show all origins fr now //origin: "https://spamyourkeyboard.io" (deploy time)
         methods: ["GET","POST"]
     }
 });
 
-//remember users and local JSON saving incase server goes down
-const USER_FILE = path.join(__dirname, 'globalscores.json');
-let state = {
-    globalCount: 0,
-    users: {}
-} //userID -> {username,total}
+//createClient() doesn't work with upstash damn
+const redis = new Redis({
+    url: process.env.UPSTASH_REDIS_URL, //read from the .env file (untracked)
+    token: process.env.UPSTASH_REDIS_TOKEN
+})
 
-function loadScoresFromFile() {
-    try {
-        if (fs.existsSync(USER_FILE)) {
-            const raw = fs.readFileSync(USER_FILE);
-            state = JSON.parse(raw);
-            console.log("🧩 Loaded scores from JSON.")
-        } else {
-            console.log("🥲 No existing JSON found. Starting fresh.")
-            state.users = {}
-        }
-    } catch (err) {
-        console.error("😵 Failed to Load scores: ", err);
-    }
-}
-//Load it from file on server restart
-loadScoresFromFile();
+//redis health checkUp :D
+redis.set('test', 'ok').then(() => console.log('🧪 Redis reachable'));
 
-function saveScoresToFile() {
-    try {
-        fs.writeFileSync(USER_FILE, JSON.stringify(state,null,2));
-        console.log("📝 Saved scores to file");
-    } catch (err) {
-        console.error("☠️ Failed to save scores:",err);
-    }
+async function getGlobalCount() {
+    const val = await redis.get('globalCount');
+    return parseInt(val) || 0;
 }
-//Auto save every 10 seconds
-setInterval(saveScoresToFile, 10000);
+
+//Past stored count logged on console
+getGlobalCount().then(c => console.log("Initial GlobalCount =", c));
+
+async function incrementGlobalCount(by) {
+    //returns newCount in one go
+    const newCount = await redis.incrby('globalCount',by);
+    return newCount;
+}
+
+//Add or update user scores
+async function updateUserScore(userID, username, increment) {
+    // await redis.hset('usernames', userID, username); //HORRIBLY WRONG X( one write
+    await redis.hset('usernames', {  
+        [userID]: username  
+    });
+    const newScore = await redis.zincrby('leaderboard', increment, userID);
+    return newScore;
+}
 
 //Serve static files from ../client
 app.use(express.static(path.join(__dirname,'../client')));
 
-// Optional: redirect unknown routes to index.html (THIS OLD IT BROKE cuz * include http':')
-// app.get('*', (req,res) => {
-//     res.sendFile(path.join(__dirname, '../client/index.html'));
-// });
-
-// This regex matches any path that starts with "/" and never contains ":".
+//This regex matches any path that starts with "/" and never contains ":".
 app.get(/^\/[^:]*$/, (req, res) => {
   res.sendFile(path.join(__dirname, '../client/index.html'));
 });
 
 //Leaderboard Method()
-function getTopUsers(limit = 10) {
-    return Object.entries(state.users) //get the objects of users in [key(userID),data{un,total}] array
-    .sort((a,b) => b[1].total - a[1].total).slice(0,limit) //descending sort(b-a) on total, slice.
-    .map(([userId,data]) => ({  //makes it a clean object array [{userID,un,total},{},{}...]
-        userId,
-        username: data.username,
-        total: data.total
+async function getTopUsers(limit = 10) {
+    //get top N userIDs + scores
+    
+    const raw = await redis.zrange('leaderboard', 0, limit - 1, {
+        withScores: true,
+        rev:        true,
+    });
+    //raw = [ id1, score1, id2, score2, … ]
+
+    //split into arrays
+    const userIds = [], scores = [];
+    for (let i = 0; i < raw.length; i += 2) {
+        userIds.push(raw[i]);
+        scores .push(parseInt(raw[i+1], 10));
+    }
+    
+    if (raw.length === 0) {
+        return [];   // no users yet
+    }
+
+    //fetch all usernames at once (ITS NOT FETCHING SHIT)
+    const names = await redis.hmget('usernames', ...userIds) || [];
+    //[ "username1", "username2", … ] same length as userIds
+
+    //zip into the final array
+    return userIds.map((id, i) => ({
+        userID: id,
+        username: names[i] != null ? names[i] : 'Anonymous',
+        total: scores[i],
     }));
 }
-
 
 io.on('connection', (socket) => {
     console.log('🟩 New Connection Secured:', socket.id);
 
-    //Send the current "count" in server to the user
-    socket.emit('init', state.globalCount);
+    //Send the current "count" & leaderboard in server to the user
+    getGlobalCount().then(async count => {
+        socket.emit('init', {
+            count,
+            leaderboard: await getTopUsers()
+        })
+    })
 
     //Handle increment events (the stuff that will increase the count)
-    socket.on('increment', ({userID,username,amount}) => {
+    socket.on('increment', async ({userID,username,amount}) => {
         //UserID tamper protection
         if (!socket.userID) {
             socket.userID = userID;
@@ -94,31 +117,31 @@ io.on('connection', (socket) => {
             console.warn(`⚠️ Bro tried to change userID lmao: ${socket.id}`);
             return;
         }
+        // await redis.hset('usernames', userID, username);
+        await incrementGlobalCount(amount);
+        await updateUserScore(userID,username,amount);
 
-        state.globalCount += amount;
+        //batch redis updates
+        const[ , , newCount] = await redis
+        .multi()
+        .hset('usernames',{[userID]:username})
+        .zincrby('leaderboard',amount,userID)
+        .incrby('globalCount',amount)
+        .exec(); 
+        //[,, newCount] done for array destructuring and pulling out third element(incrby) of exec() returns
 
-        //Updating user's stuff done
-        const existing = state.users[userID] || { username, total:0 };
-        existing.total += amount;
-        state.users[userID] = existing;
-        
-        console.log(`➕ ${socket.id} added ${amount} -> New Count: ${state.globalCount}`);
-        io.emit('update', state.globalCount); //Broadcast the globalCount to everyone
-        io.emit('leaderboard', getTopUsers()); //Broadcase the leaderboard again
+        const globalCount = parseInt(newCount, 10);
+        const topUsers = await getTopUsers(); 
+        console.log('⬆️ increment payload:', { userID, username, amount });
+        console.log("TOP USERS: ", topUsers);
+        io.emit('update', globalCount); //Broadcast the globalCount to everyone
+        io.emit('leaderboard', topUsers); //Broadcase the leaderboard again
     });
 
     socket.on('disconnect', () => {
         console.log('⭕ Disconnected:', socket.id);
     });
 });
-
-const safeExit = () => {
-    console.log("\n🚪 Performing a final save...")
-    saveScoresToFile();
-    process.exit();
-};
-process.on('SIGTERM', safeExit); // Cloud restart
-process.on('SIGINT', safeExit); // CTRL + C cmd
 
 server.listen(3000, () => {
     console.log('✅ Server running at http://localhost:3000');

@@ -78,14 +78,15 @@ function showFloatingPlusOne(e) {
 //Leaderboard()
 const leaderboardList = document.getElementById("leaderboard-list"); //refer html <ol>
 
-socket.on("leaderboard", (leaders) => {
+function renderLeaderboard(leaders) {
     leaderboardList.innerHTML = '';
-    leaders.forEach(({ username, total }) => {
+    leaders.forEach(({userID, username, total }) => {
         const li = document.createElement("li");
         li.textContent = `${username}: ${total}`;
         leaderboardList.appendChild(li);
     });
-});
+}
+
 
 //Bubble Physics :D
 let bubbleCount = 0;
@@ -198,9 +199,12 @@ socket.on("connect", () => {
     console.log("😉 Connected to Backend");
 });
 
-socket.on("init", (count) => {
+socket.on("init", ({count,leaderboard}) => {
     counterEl.textContent = count;
+    renderLeaderboard(leaderboard);
 });
+
+socket.on("leaderboard", renderLeaderboard);
 
 socket.on("update", (newCount) => {
     counterEl.textContent = newCount;
