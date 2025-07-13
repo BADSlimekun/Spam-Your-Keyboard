@@ -37,22 +37,6 @@ async function getGlobalCount() {
 //Past stored count logged on console
 getGlobalCount().then(c => console.log("Initial GlobalCount =", c));
 
-async function incrementGlobalCount(by) {
-    //returns newCount in one go
-    const newCount = await redis.incrby('globalCount',by);
-    return newCount;
-}
-
-//Add or update user scores
-async function updateUserScore(userID, username, increment) {
-    // await redis.hset('usernames', userID, username); //HORRIBLY WRONG X( one write
-    await redis.hset('usernames', {  
-        [userID]: username  
-    });
-    const newScore = await redis.zincrby('leaderboard', increment, userID);
-    return newScore;
-}
-
 //Serve static files from ../client
 app.use(express.static(path.join(__dirname,'../client')));
 
@@ -66,8 +50,8 @@ async function getTopUsers(limit = 10) {
     //get top N userIDs + scores
     
     const raw = await redis.zrange('leaderboard', 0, limit - 1, {
-        withScores: true,
-        rev:        true,
+        withScores: true,   //else it would give me just members IDs
+        rev:        true,   //descending order
     });
     //raw = [ id1, score1, id2, score2, … ]
 
@@ -82,9 +66,9 @@ async function getTopUsers(limit = 10) {
         return [];   // no users yet
     }
 
-    //fetch all usernames at once (ITS NOT FETCHING SHIT)
-    const names = await redis.hmget('usernames', ...userIds) || [];
-    //[ "username1", "username2", … ] same length as userIds
+    const namesLookUp = await redis.hmget('usernames', ...userIds) || []; // {id:name , ...}
+    const names =  userIds.map(id => namesLookUp[id] ?? null);
+    //[ "username1", "username2", … ] same length as userIds and in same sorted order
 
     //zip into the final array
     return userIds.map((id, i) => ({
@@ -115,11 +99,11 @@ io.on('connection', (socket) => {
 
         if (socket.userID !== userID) {
             console.warn(`⚠️ Bro tried to change userID lmao: ${socket.id}`);
-            return;
+            return;     //add some popup something
         }
-        // await redis.hset('usernames', userID, username);
-        await incrementGlobalCount(amount);
-        await updateUserScore(userID,username,amount);
+
+        // await incrementGlobalCount(amount); //UNUSED (packaged below)
+        // await updateUserScore(userID,username,amount); //UNUSED (packaged below)
 
         //batch redis updates
         const[ , , newCount] = await redis
@@ -133,7 +117,6 @@ io.on('connection', (socket) => {
         const globalCount = parseInt(newCount, 10);
         const topUsers = await getTopUsers(); 
         console.log('⬆️ increment payload:', { userID, username, amount });
-        console.log("TOP USERS: ", topUsers);
         io.emit('update', globalCount); //Broadcast the globalCount to everyone
         io.emit('leaderboard', topUsers); //Broadcase the leaderboard again
     });

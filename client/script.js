@@ -204,7 +204,7 @@ socket.on("init", ({count,leaderboard}) => {
     renderLeaderboard(leaderboard);
 });
 
-socket.on("leaderboard", renderLeaderboard);
+socket.on("leaderboard", renderLeaderboard); //it takes the value of TopUsers as leaders
 
 socket.on("update", (newCount) => {
     counterEl.textContent = newCount;
