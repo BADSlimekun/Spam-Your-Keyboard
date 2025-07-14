@@ -1,8 +1,30 @@
+// Theme toggle initialization
+const themeToggle = document.querySelector('.toggle-theme');
+const rootEl = document.documentElement;
+const savedTheme = localStorage.getItem('theme') || 'dark';
+rootEl.setAttribute('data-theme', savedTheme);
+updateToggleIcon();
+
+themeToggle.addEventListener("click", () => {
+    const newTheme = rootEl.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    rootEl.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+    updateToggleIcon();
+});
+
+function updateToggleIcon() {
+    const current = rootEl.getAttribute('data-theme');
+    themeToggle.textContent = current === 'dark' ? '☀️': '🌑';
+}
+
 //Connecting to the backend?
 const socket = io("http://localhost:3000");
 
-//PROGRAM
+//Elements
 const counterEl = document.getElementById("counter");
+const bubbleDisplay = document.getElementById("bubble-display");
+
+//PROGRAM
 
 //User Personalization()
 //Generate unique Id and store it in localStorage
@@ -34,10 +56,13 @@ let clickBuffer = null;
 async function initWebAudio() {
     console.log("🔊 Initializing WebAudio...");
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
-    const response = await fetch('click.mp3');
-    const arrayBuffer = await response.arrayBuffer();
-    clickBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+    try {
+        const response = await fetch('click.mp3');
+        const arrayBuffer = await response.arrayBuffer();
+        clickBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+    } catch (err) {
+        console.error("Failed to load mp3:",err);
+    }
 }
 
 window.addEventListener("click", () => {
@@ -65,10 +90,12 @@ function playClickSound() {
 //Animations
 function showFloatingPlusOne(e) {
     const plus = document.createElement("div");
-    plus.textContent = `+${e}`;
+    plus.textContent = `+${1}`;
     plus.className = "floating-plus-one";
-    plus.style.left = Math.random()*80 + 10 + "%"; //spawn em at random x
-    document.body.appendChild(plus);
+    plus.style.left = Math.random()*85 + 10 + "%"; //spawn em at random x
+    const rot = (Math.random() * (40) - 20).toFixed(0) + 'deg'; 
+    plus.style.setProperty('--randRot', rot);
+    document.querySelector('.effect-layer').appendChild(plus);
     
     setTimeout(() => {
         plus.remove();
@@ -80,38 +107,74 @@ const leaderboardList = document.getElementById("leaderboard-list"); //refer htm
 
 function renderLeaderboard(leaders) {
     leaderboardList.innerHTML = '';
-    leaders.forEach(({userID, username, total }) => {
+    leaders.forEach(({userID, username, total }, index) => {
         const li = document.createElement("li");
-        li.textContent = `${username}: ${total}`;
+        li.innerHTML = `
+            <span class="trophy">${index === 0 ? '🏆' : ''}</span>
+            <span class="username">${username}</span>
+            <span>${total}</span>
+        `;
+        // li.textContent = `${username}: ${total}`;
         leaderboardList.appendChild(li);
     });
 }
-
+//remove before anything
+renderLeaderboard([
+    {userID: 0, username: 'Hello1', total: 10000}, 
+    {userID: 1, username: 'Hello2', total: 8200},
+    {userID: 2, username: 'Hello3', total: 6040},
+    {userID: 3, username: 'Hello4', total: 3299},
+    {userID: 4, username: 'Hello4', total: 3239},
+    {userID: 5, username: 'Hello49eawjfpjwifiwjifjwjfawjfjawi', total: 2229},
+    {userID: 6, username: 'Hello4', total: 1245},
+    {userID: 7, username: 'Hello4', total: 1000},
+    {userID: 8, username: 'Hello4', total: 849},
+    {userID: 9, username: 'Hello4', total: 163},
+]);
 
 //Bubble Physics :D
 let bubbleCount = 0;
 let bubbleTimeOut = null;
 
-const bubbleDisplay = document.getElementById("bubble-display");
 function updateBubbleDisplay() {
     bubbleDisplay.textContent = `${bubbleCount}`;
+    
     if (bubbleCount > 100) {
         bubbleDisplay.classList.add('combo');
     } else {
         bubbleDisplay.classList.remove('combo');
     }
+    updateBubbleSize();
+}
+
+function updateBubbleSize() {
+    const styles = getComputedStyle(rootEl);
+    const minF = parseFloat(styles.getPropertyValue('--bubble-font-min'));
+    const maxF = parseFloat(styles.getPropertyValue('--bubble-font-max'));
+    let threshold = 100;
+    let x = 0;
+    if (bubbleCount > 100) {x = 100; threshold = 300;} 
+    if (bubbleCount > 300) {x = 300; threshold = 600;}
+    if (bubbleCount > 600) {x = 600; threshold = 1000;}
+    if (bubbleCount > 1000) {x = 1000; threshold = 3000;}
+    if (bubbleCount > 3000) {x = 3000; threshold = 9000;}
+    if (bubbleCount > 9000) {x = 9000; threshold = 15000;}
+    newSize = Math.min(minF + (maxF - minF) * ((bubbleCount-x) / threshold), maxF); 
+    bubbleDisplay.style.fontSize = `${newSize}rem`;
 }
 
 //Special word :D
 function showComboFlash(word) {
     const flash = document.createElement("div");
-    flash.textContent = `COMBO: ${word}! +100`;
+    flash.textContent = `${word}! +50`;
     flash.className = "combo-flash";
-    flash.style.left = Math.random()*10 + 40 + "%"; //spawn em at random x
-    document.body.appendChild(flash);
+    flash.style.left = Math.random()*60 + "%"; //spawn em at random x
+    const rot = (Math.random() * (40) - 20).toFixed(0) + 'deg'; 
+    flash.style.setProperty('--randRot', rot);
+    document.querySelector('.effect-layer').appendChild(flash);
     setTimeout(() => {
         flash.remove();
-    },1000);
+    },1100);
 }
 
 //Special word based Combo system
@@ -127,29 +190,24 @@ document.addEventListener("keydown", (e) => {
 
     for (const word of bonusWords) {
         if (wordStreak.endsWith(word)) {
-        bubbleCount += 100;
+        bubbleCount += 50;
         wordStreak = ''; //Reset after hit
         showComboFlash(word);
         }
     }
 });
 
-//ListenForInputs shhhhh :D
+//ListenForInputs shhhhh :D (NOT IMPLEMENTED YET)
 const keysPressed = new Set();
 const bonusLetters = ['f', 'a', 's', 't']; //take input from an external list
 
 function handleInput(e) {
-    let baseValue = 1;
-
-    //Check for bonus letters
-    if (e && bonusLetters.includes(e.key)) {
-        baseValue = 2;
-    }
+    let baseValue = 50;
 
     bubbleCount += baseValue;
     updateBubbleDisplay();
     playClickSound();
-    showFloatingPlusOne(baseValue);
+    showFloatingPlusOne(e);
 
     clearTimeout(bubbleTimeOut);
     bubbleTimeOut = setTimeout(() => {
@@ -169,7 +227,7 @@ document.addEventListener("keydown", (e) => {
     if (keysPressed.has(e.code)) return; //ignore holding
     keysPressed.add(e.code);
 
-    handleInput();
+    handleInput(e);
 });
 
 document.addEventListener("keyup", (e) => {

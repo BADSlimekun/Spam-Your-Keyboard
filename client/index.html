@@ -1,19 +1,31 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Spam Your Keyboard</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css" />
   <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 </head>
 <body>
-  <h1 id="counter">0</h1>
-  <div id="bubble-display"></div>
-  <div id="leaderboard">
-    <h2>🏆 Leaderboard </h2>
-    <ol id="leaderboard-list"></ol>
+  <!-- Background +1s and Combo display -->
+  <div class="effect-layer"></div>
+  <!-- Theme toggle button -->
+  <button class="toggle-theme">☾</button>
+
+  <div class="main-content">
+    <!--Global count display-->
+    <h1 id="counter" class="global-count">0</h1>
+    <!--Bubble Counter-->
+    <div id="bubble-display">0</div>
   </div>
+
+  <!-- Leaderboard -->
+  <div class="leaderboard">
+    <!-- <h2>🏆 Leaderboard</h2> -->
+    <ul id="leaderboard-list"></ul>
+  </div>
+
   <script src="script.js" defer></script>
 </body>
 </html>
