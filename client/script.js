@@ -90,7 +90,7 @@ function playClickSound() {
 //Animations
 function showFloatingPlusOne(e) {
     const plus = document.createElement("div");
-    plus.textContent = `+${1}`;
+    plus.textContent = `+${e}`;
     plus.className = "floating-plus-one";
     plus.style.left = Math.random()*85 + 10 + "%"; //spawn em at random x
     const rot = (Math.random() * (40) - 20).toFixed(0) + 'deg'; 
@@ -109,12 +109,7 @@ function renderLeaderboard(leaders) {
     leaderboardList.innerHTML = '';
     leaders.forEach(({userID, username, total }, index) => {
         const li = document.createElement("li");
-        li.innerHTML = `
-            <span class="trophy">${index === 0 ? '🏆' : ''}</span>
-            <span class="username">${username}</span>
-            <span>${total}</span>
-        `;
-        // li.textContent = `${username}: ${total}`;
+        li.textContent = `${index+1}. ${username}: ${total}`;
         leaderboardList.appendChild(li);
     });
 }
@@ -125,7 +120,7 @@ renderLeaderboard([
     {userID: 2, username: 'Hello3', total: 6040},
     {userID: 3, username: 'Hello4', total: 3299},
     {userID: 4, username: 'Hello4', total: 3239},
-    {userID: 5, username: 'Hello49eawjfpjwifiwjifjwjfawjfjawi', total: 2229},
+    {userID: 5, username: 'Hel535', total: 2229},
     {userID: 6, username: 'Hello4', total: 1245},
     {userID: 7, username: 'Hello4', total: 1000},
     {userID: 8, username: 'Hello4', total: 849},
@@ -139,11 +134,11 @@ let bubbleTimeOut = null;
 function updateBubbleDisplay() {
     bubbleDisplay.textContent = `${bubbleCount}`;
     
-    if (bubbleCount > 100) {
-        bubbleDisplay.classList.add('combo');
-    } else {
-        bubbleDisplay.classList.remove('combo');
-    }
+    // if (bubbleCount > 100) {
+    //     bubbleDisplay.classList.add('combo');
+    // } else {
+    //     bubbleDisplay.classList.remove('combo');
+    // }
     updateBubbleSize();
 }
 
@@ -153,12 +148,12 @@ function updateBubbleSize() {
     const maxF = parseFloat(styles.getPropertyValue('--bubble-font-max'));
     let threshold = 100;
     let x = 0;
-    if (bubbleCount > 100) {x = 100; threshold = 300;} 
-    if (bubbleCount > 300) {x = 300; threshold = 600;}
-    if (bubbleCount > 600) {x = 600; threshold = 1000;}
-    if (bubbleCount > 1000) {x = 1000; threshold = 3000;}
-    if (bubbleCount > 3000) {x = 3000; threshold = 9000;}
-    if (bubbleCount > 9000) {x = 9000; threshold = 15000;}
+    if (bubbleCount > 100) {x = 100; threshold = 200;} 
+    if (bubbleCount > 200) {x = 200; threshold = 400;}
+    if (bubbleCount > 400) {x = 400; threshold = 600;}
+    if (bubbleCount > 600) {x = 600; threshold = 900;}
+    if (bubbleCount > 900) {x = 900; threshold = 2000;}
+    if (bubbleCount > 2000) {x = 2000; threshold = 3000;}
     newSize = Math.min(minF + (maxF - minF) * ((bubbleCount-x) / threshold), maxF); 
     bubbleDisplay.style.fontSize = `${newSize}rem`;
 }
@@ -202,12 +197,13 @@ const keysPressed = new Set();
 const bonusLetters = ['f', 'a', 's', 't']; //take input from an external list
 
 function handleInput(e) {
-    let baseValue = 50;
+    let baseValue = Number((Math.random()*10).toFixed(0));
+    // baseValue = 1;
 
     bubbleCount += baseValue;
     updateBubbleDisplay();
     playClickSound();
-    showFloatingPlusOne(e);
+    showFloatingPlusOne(baseValue);
 
     clearTimeout(bubbleTimeOut);
     bubbleTimeOut = setTimeout(() => {
@@ -217,6 +213,7 @@ function handleInput(e) {
                 username: getOrCreateUserName(),
                 amount: bubbleCount
             });
+            counterEl.textContent = (Number(counterEl.textContent.replace(/,/g, "")) + bubbleCount).toLocaleString("en-US");  //REMIVIENOENCINENIEIFAIHFOAWIHFIOAWHDAWH
             bubbleCount = 0;
             updateBubbleDisplay();
         }
