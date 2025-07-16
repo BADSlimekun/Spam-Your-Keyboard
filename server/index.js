@@ -78,8 +78,12 @@ async function getTopUsers(limit = 10) {
     }));
 }
 
+let currentOnline = 0;
+
 io.on('connection', (socket) => {
     console.log('🟩 New Connection Secured:', socket.id);
+    currentOnline++;
+    io.emit('onlineCount', currentOnline);
 
     //Send the current "count" & leaderboard in server to the user
     getGlobalCount().then(async count => {
@@ -116,13 +120,15 @@ io.on('connection', (socket) => {
 
         const globalCount = parseInt(newCount, 10);
         const topUsers = await getTopUsers(); 
-        console.log('⬆️ increment payload:', { userID, username, amount });
+        // console.log('⬆️ increment payload:', { userID, username, amount });
         io.emit('update', globalCount); //Broadcast the globalCount to everyone
         io.emit('leaderboard', topUsers); //Broadcase the leaderboard again
+        io.emit('log', { username, increment:amount }); //Broadcast to all users the live log
     });
-
     socket.on('disconnect', () => {
         console.log('⭕ Disconnected:', socket.id);
+        currentOnline = Math.max(0, currentOnline-1 );
+        io.emit('onlineCount', currentOnline);
     });
 });
 

@@ -8,15 +8,26 @@
   <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 </head>
 <body>
+  <!-- Top-left social links -->
+  <div class="social-links">
+    <a href="https://www.linkedin.com/in/sayandeep-mitra-550a4a30a/" target="_blank" aria-label="LinkedIn">
+      <img src="linkedin.svg" data-light-src="linkedin.svg" data-dark-src="linkedin-white.svg" alt="LinkedIn">
+    </a>
+    <a href="https://www.instagram.com/m_sayan.deep/" target="_blank" aria-label="Instagram">
+      <img src="instagram.svg" data-light-src="instagram.svg" data-dark-src="instagram-white.svg" alt="Instagram">
+    </a>
+    
+  </div>
   <!-- Background +1s and Combo display -->
   <div class="effect-layer"></div>
   <!-- Theme toggle button -->
   <button class="toggle-theme"></button>
-  
+  <!-- Share with friends -->
+  <button class="share-btn" title="Share with friends">🔗</button>
   
   <div class="main-content">
     <!--Global count display-->
-    <h1 id="counter" class="global-count">545300000</h1>
+    <h1 id="counter" class="global-count">0</h1>
     <!--Bubble Counter-->
     <div id="bubble-display">0</div>
   </div>
@@ -24,10 +35,28 @@
   <aside class="leaderboard">
     <header class="leaderboard-header">
       <span class="trophy-icon">🏆</span>
-      <h2 class="title">TOP CONTRIBUTERS</h2>
+      <h2 class="title">LEADERBOARD</h2>
     </header>
-    <ul id="leaderboard-list"></ul>
+    <ul id="leaderboard-list">
+      <li class="leaderboard-item">
+        <span class="rank">1. </span>
+        <span class="name">TemplateUser</span>
+        <span class="score">99219</span>
+      </li>
+    </ul>
   </aside>
+
+   <!-- Live‐Log panel (right side) -->
+  <aside class="live-log">
+    <header class="live-log-header">
+      <span class="live-count">2.3k</span>  SPAMMERS LIVE
+    </header>
+    <ul id="live-log-list"></ul>
+  </aside>
+   <!-- Total contributions badge -->
+ <div id="total-contributions" class="total-contributions">
+   Your Lifetime Contribution: 0
+ </div>
   
   <script src="script.js" defer></script>
 </body>
