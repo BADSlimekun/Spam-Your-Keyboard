@@ -95,10 +95,14 @@ io.on('connection', (socket) => {
 
     //Handle increment events (the stuff that will increase the count)
     socket.on('increment', async ({userID,username,amount}) => {
+        // --- SANITY: cap & sanitize username to 16 chars, no funny business ---
+        let cleanName = username.trim().substring(0, 16);
+        cleanName = cleanName.replace(/[^\w-]/g, '') || 'Anonymous';
+
         //UserID tamper protection
         if (!socket.userID) {
             socket.userID = userID;
-            socket.userName = username;
+            socket.userName = cleanName;
         }
 
         if (socket.userID !== userID) {
@@ -112,7 +116,7 @@ io.on('connection', (socket) => {
         //batch redis updates
         const[ , , newCount] = await redis
         .multi()
-        .hset('usernames',{[userID]:username})
+        .hset('usernames',{[userID]:cleanName})
         .zincrby('leaderboard',amount,userID)
         .incrby('globalCount',amount)
         .exec(); 
@@ -123,7 +127,7 @@ io.on('connection', (socket) => {
         // console.log('⬆️ increment payload:', { userID, username, amount });
         io.emit('update', globalCount); //Broadcast the globalCount to everyone
         io.emit('leaderboard', topUsers); //Broadcase the leaderboard again
-        io.emit('log', { username, increment:amount }); //Broadcast to all users the live log
+        io.emit('log', { cleanName, increment:amount }); //Broadcast to all users the live log
     });
     socket.on('disconnect', () => {
         console.log('⭕ Disconnected:', socket.id);
