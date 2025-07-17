@@ -6,7 +6,10 @@ const cors = require('cors'); //What is this used for?
 const fs = require('fs');
 const path = require('path');
 const { Redis } = require('@upstash/redis');
-require('dotenv').config();
+// require('dotenv').config();
+if (process.env.NODE_ENV !== 'production') {
+    require('dotenv').config();
+}
 
 //PROGRAM
 
@@ -38,11 +41,11 @@ async function getGlobalCount() {
 getGlobalCount().then(c => console.log("Initial GlobalCount =", c));
 
 //Serve static files from ../client
-app.use(express.static(path.join(__dirname,'../client')));
+app.use(express.static(path.join(__dirname,'client')));
 
 //This regex matches any path that starts with "/" and never contains ":".
 app.get(/^\/[^:]*$/, (req, res) => {
-  res.sendFile(path.join(__dirname, '../client/index.html'));
+  res.sendFile(path.join(__dirname, 'client', 'index.html'));
 });
 
 //Leaderboard Method()
@@ -136,6 +139,12 @@ io.on('connection', (socket) => {
     });
 });
 
-server.listen(3000, () => {
-    console.log('✅ Server running at http://localhost:3000');
+// server.listen(3000, () => {
+//     console.log('✅ Server running at http://localhost:3000');
+// });
+
+//obtain port by the app engine
+const PORT = process.env.PORT || 8080;
+server.listen(PORT, () => {
+    console.log(`✅ Server listening on port ${PORT}`);
 });
