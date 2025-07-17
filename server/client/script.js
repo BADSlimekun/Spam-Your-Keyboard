@@ -1,7 +1,7 @@
 // Theme toggle initialization
 const themeToggle = document.querySelector('.toggle-theme');
 const rootEl = document.documentElement;
-const savedTheme = localStorage.getItem('theme') || 'dark';
+const savedTheme = localStorage.getItem('theme') || 'light';
 const totalContribEl = document.getElementById('total-contributions');
 totalContribEl.textContent =`Your Lifetime Contribution: ${toShortForm(localStorage.getItem('Total Contri'))}`;
 
@@ -53,7 +53,10 @@ function updateToggleIcon() {
 }
 
 //Connecting to the backend?
-const socket = io("http://localhost:3000");
+const socket = io({
+    transports: ['websocket'],
+    path: '/socket.io'
+});
 
 //Elements
 const counterEl = document.getElementById("counter");
@@ -76,10 +79,10 @@ const getOrCreateUserName = () => {
     let name = localStorage.getItem('username');
     if (!name) {
         //ask, then trim to 16 chars and strip disallowed chars
-        let input = prompt("Enter nickname (1-16 chars):") || `:D-${Math.floor(Math.random()*10000)}`;
+        let input = prompt("Enter nickname (1-16 chars):") || `Anon-${Math.floor(Math.random()*10000)}`;
         input = input.trim().substring(0, 16);
         //only allow letters, numbers, underscores or hyphens
-        name = input.replace(/[^\w-]/g, '') || 'Anonymous';
+        name = input.replace(/[^\w-]/g) || `Anon-${Math.floor(Math.random()*10000)}`;
         localStorage.setItem('username', name);
     }
     return name;
@@ -377,7 +380,7 @@ socket.on("connect", () => {
 socket.on("init", ({count,leaderboard}) => {
     counterEl.textContent = count.toLocaleString("en-US");
     renderLeaderboard(leaderboard);
-    let contri = localStorage.getItem('Total Conti');
+    let contri = localStorage.getItem('Total Contri');
     if (!contri) {
         contri = 0;
         localStorage.setItem('Total Contri', contri); //this is client-native

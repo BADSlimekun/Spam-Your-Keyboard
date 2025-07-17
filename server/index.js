@@ -20,7 +20,8 @@ const io = new Server(server, {
     cors: {
         origin: "*", //we show all origins fr now //origin: "https://spamyourkeyboard.io" (deploy time)
         methods: ["GET","POST"]
-    }
+    },
+    transports: ['websocket']
 });
 
 //createClient() doesn't work with upstash damn
@@ -100,7 +101,7 @@ io.on('connection', (socket) => {
     socket.on('increment', async ({userID,username,amount}) => {
         // --- SANITY: cap & sanitize username to 16 chars, no funny business ---
         let cleanName = username.trim().substring(0, 16);
-        cleanName = cleanName.replace(/[^\w-]/g, '') || 'Anonymous';
+        cleanName = cleanName.replace(/[^\w-]/g) || 'Anonymous';
 
         //UserID tamper protection
         if (!socket.userID) {
@@ -130,7 +131,7 @@ io.on('connection', (socket) => {
         // console.log('⬆️ increment payload:', { userID, username, amount });
         io.emit('update', globalCount); //Broadcast the globalCount to everyone
         io.emit('leaderboard', topUsers); //Broadcase the leaderboard again
-        io.emit('log', { cleanName, increment:amount }); //Broadcast to all users the live log
+        io.emit('log', { username:cleanName, increment:amount }); //Broadcast to all users the live log
     });
     socket.on('disconnect', () => {
         console.log('⭕ Disconnected:', socket.id);
