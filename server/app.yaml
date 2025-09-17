@@ -1,9 +1,0 @@
-runtime: nodejs18                # or nodejs20 if available
-env: flex
-instance_class: F2               # small, cost-effective instance
-env_variables:
-  UPSTASH_REDIS_URL:   "https://guided-mink-57645.upstash.io"
-  UPSTASH_REDIS_TOKEN: "AeEtAAIjcDEwODhjMjg4MWFmNDA0ZTg3YjdjMjRkZGJmNzE2OGRkMHAxMA"
-
-automatic_scaling:
-  min_instances: 1               # keep 1 warm instance for faster responses
