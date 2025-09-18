@@ -7,16 +7,16 @@ const fs = require('fs');
 const path = require('path');
 const { Redis } = require('@upstash/redis');
 
-require('dotenv').config({ path: path.join(__dirname, '.env') });
-const required = ['UPSTASH_REDIS_URL','UPSTASH_REDIS_TOKEN'];
-const missing = required.filter(k => !process.env[k]);
-if (missing.length) {
-    console.error('Missing env:', missing.join(', '));
-    process.exit(1);
-}
-// if (process.env.NODE_ENV !== 'production') {
-//     require('dotenv').config();
+// require('dotenv').config({ path: path.join(__dirname, '.env') });
+// const required = ['UPSTASH_REDIS_URL','UPSTASH_REDIS_TOKEN'];
+// const missing = required.filter(k => !process.env[k]);
+// if (missing.length) {
+//     console.error('Missing env:', missing.join(', '));
+//     process.exit(1);
 // }
+if (process.env.NODE_ENV !== 'production') {
+    require('dotenv').config();
+}
 
 //PROGRAM
 
