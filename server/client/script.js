@@ -69,7 +69,7 @@ const bubbleDisplay = document.getElementById("bubble-display");
 const getOrCreateUserID = () => {
     let id = localStorage.getItem('userID');
     if (!id) {
-        id = crypto.randomUUID();
+        id = "u-" + Math.random().toString(36).slice(2); //bad for scaling but works for 100-1000 people
         localStorage.setItem('userID', id); //this is client-native
     }
     return id;
