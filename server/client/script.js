@@ -134,11 +134,11 @@ function playClickSound() {
     source.buffer = clickBuffer;
 
     // randomize pitch for natural feel
-    source.playbackRate.value = 0.55 + Math.random() * 0.15;
+    source.playbackRate.value = 0.6 + Math.random() * 0.15;
 
     const gainNode = audioCtx.createGain();
     // randomize volume slightly
-    gainNode.gain.value = 4 + Math.random() * 0.5;
+    gainNode.gain.value = 3 + Math.random() * 0.4;
 
     source.connect(gainNode).connect(audioCtx.destination);
     source.start(0);
