@@ -7,16 +7,27 @@ const fs = require('fs');
 const path = require('path');
 const { Redis } = require('@upstash/redis');
 
-// require('dotenv').config({ path: path.join(__dirname, '.env') });
-// const required = ['UPSTASH_REDIS_URL','UPSTASH_REDIS_TOKEN'];
-// const missing = required.filter(k => !process.env[k]);
-// if (missing.length) {
-//     console.error('Missing env:', missing.join(', '));
-//     process.exit(1);
-// }
-if (process.env.NODE_ENV !== 'production') {
-    require('dotenv').config();
+require('dotenv').config({ path: path.join(__dirname, '.env') });
+const required = ['UPSTASH_REDIS_URL','UPSTASH_REDIS_TOKEN'];
+const missing = required.filter(k => !process.env[k]);
+if (missing.length) {
+    console.error('Missing env:', missing.join(', '));
+    process.exit(1);
 }
+
+// if (process.env.NODE_ENV !== 'production') {
+//     require('dotenv').config();
+// }
+
+// normalize values
+for (const k of ['UPSTASH_REDIS_URL', 'UPSTASH_REDIS_TOKEN']) {
+  if (process.env[k]) {
+    process.env[k] = process.env[k].replace(/\r/g, '').trim();
+  }
+}
+
+console.log("URL:", JSON.stringify(process.env.UPSTASH_REDIS_URL));
+console.log("TOKEN:", JSON.stringify(process.env.UPSTASH_REDIS_TOKEN));
 
 //PROGRAM
 
