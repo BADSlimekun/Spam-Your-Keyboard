@@ -44,8 +44,8 @@ const io = new Server(server, {
 
 //createClient() doesn't work with upstash damn
 const redis = new Redis({
-    url:(process.env.UPSTASH_REDIS_URL || " ").trim(), //read from the .env file (untracked)
-    token:(process.env.UPSTASH_REDIS_TOKEN, " ").trim()
+    url:process.env.UPSTASH_REDIS_URL, //read from the .env file (untracked)
+    token:process.env.UPSTASH_REDIS_TOKEN
 });
 
 //redis health checkUp :D
@@ -159,7 +159,7 @@ io.on('connection', (socket) => {
 });
 
 server.listen(3000, "0.0.0.0", () => {
-    console.log('✅ Server running at http://localhost:3000');
+    console.log('✅ Server running at http://IP:3000');
 });
 
 //obtain port by the app engine
