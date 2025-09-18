@@ -33,9 +33,9 @@ const io = new Server(server, {
 
 //createClient() doesn't work with upstash damn
 const redis = new Redis({
-    url: process.env.UPSTASH_REDIS_URL, //read from the .env file (untracked)
-    token: process.env.UPSTASH_REDIS_TOKEN
-})
+    url:(process.env.UPSTASH_REDIS_URL || " ").trim(), //read from the .env file (untracked)
+    token:(process.env.UPSTASH_REDIS_TOKEN, " ").trim()
+});
 
 //redis health checkUp :D
 redis.set('test', 'ok').then(() => console.log('🧪 Redis reachable'));
