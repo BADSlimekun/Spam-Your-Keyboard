@@ -157,7 +157,7 @@ function showFloatingPlusOne(e) {
     
     setTimeout(() => {
         plus.remove();
-    },2000); //removal after animation
+    },1500); //removal after animation
 }
 
 //Helper func for cool concatenated scores
@@ -218,11 +218,11 @@ function updateBubbleSize() {
     let threshold = 500;
     let x = 0;
     if (bubbleCount > 500) {x = 500; threshold = 1500;} 
-    if (bubbleCount > 2000) {x = 2000; threshold = 6000;} 
-    if (bubbleCount > 8000) {x = 8000; threshold = 12000;}
-    if (bubbleCount > 20000) {x = 20000; threshold = 20000;}
-    if (bubbleCount > 40000) {x = 40000; threshold = 60000;}
-    if (bubbleCount > 100000) {x = 100000; threshold = 150000;}
+    // if (bubbleCount > 2000) {x = 2000; threshold = 6000;} 
+    // if (bubbleCount > 8000) {x = 8000; threshold = 12000;}
+    // if (bubbleCount > 20000) {x = 20000; threshold = 20000;}
+    // if (bubbleCount > 40000) {x = 40000; threshold = 60000;}
+    // if (bubbleCount > 100000) {x = 100000; threshold = 150000;}
     newSize = Math.min(minF + (maxF - minF) * ((bubbleCount-x) / threshold), maxF); 
     bubbleDisplay.style.fontSize = `${newSize}rem`;
 }
@@ -339,7 +339,7 @@ function handleInput(e) {
             bubbleCount = 0;
             updateBubbleDisplay();
         }
-    },750); //update this in due time
+    },500); //update this in due time
 }
 
 document.addEventListener("keydown", (e) => {

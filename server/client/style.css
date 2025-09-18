@@ -90,8 +90,8 @@ body {
 
 /* Global count */
 .global-count {
-    font-size: 7.5rem;
-    font-weight: 500;
+    font-size: 7rem;
+    font-weight: 400;
     text-align: center;
     font-variant-numeric: tabular-nums;
     /* letter-spacing: 10px; */
@@ -101,19 +101,19 @@ body {
     animation: pulseCount 2s infinite;
 }
 @keyframes pulseCount {
-    0%, 100% { transform: scale(1); opacity: 1; letter-spacing: 3px; }
-    50% { transform: scale(var(--scale-count,1.01)); opacity: 0.9; letter-spacing: var(--letter-spacing-count,5px); }
+    0%, 100% { transform: scale(1); opacity: 1; letter-spacing: 2px; }
+    50% { transform: scale(var(--scale-count,1.01)); opacity: 0.9; letter-spacing: var(--letter-spacing-count,4px); }
 }
 
 /* Bubble display */
 #bubble-display {
     font-size: var(--bubble-font-min);
-    font-weight: 400;
+    font-weight: 300;
     color: var(--text-color);
-    text-shadow: 0 0 5px var(--shadow-color-dark), 0 0 20px var(--shadow-color-light);
+    text-shadow: 0 0 5px var(--shadow-color-dark), 0 0 10px var(--shadow-color-light);
     font-variant-numeric: tabular-nums;
     --letter-spacing-count: 4px;
-    --scale-count: 1.1;
+    --scale-count: 1.05;
 
     text-align: center;
     margin-top: 50px;
@@ -136,8 +136,8 @@ body {
     font-weight: 100;
     color: var(--accent-color);
     text-shadow: 0 0 1px var(--shadow-color-dark), 0 0 2px var(--shadow-color-light);
-    --translate-y: -350px;
-    --scale: 2;
+    --translate-y: -300px;
+    --scale: 1.5;
     --randRot: 0;
     animation: floatBurst 2s ease-out forwards;
     pointer-events: none;
