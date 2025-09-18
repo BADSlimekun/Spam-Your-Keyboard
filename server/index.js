@@ -6,10 +6,17 @@ const cors = require('cors'); //What is this used for?
 const fs = require('fs');
 const path = require('path');
 const { Redis } = require('@upstash/redis');
-// require('dotenv').config();
-if (process.env.NODE_ENV !== 'production') {
-    require('dotenv').config();
+
+require('dotenv').config({ path: path.join(__dirname, '.env') });
+const required = ['UPSTASH_REDIS_URL','UPSTASH_REDIS_TOKEN'];
+const missing = required.filter(k => !process.env[k]);
+if (missing.length) {
+    console.error('Missing env:', missing.join(', '));
+    process.exit(1);
 }
+// if (process.env.NODE_ENV !== 'production') {
+//     require('dotenv').config();
+// }
 
 //PROGRAM
 
@@ -140,12 +147,12 @@ io.on('connection', (socket) => {
     });
 });
 
-// server.listen(3000, () => {
-//     console.log('✅ Server running at http://localhost:3000');
-// });
+server.listen(3000, "0.0.0.0", () => {
+    console.log('✅ Server running at http://localhost:3000');
+});
 
 //obtain port by the app engine
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`✅ Server listening on port ${PORT}`);
 });
