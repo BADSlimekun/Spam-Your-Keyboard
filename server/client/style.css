@@ -7,7 +7,7 @@
     --accent-color: #000000;
     
     --bubble-font-min: 2rem;
-    --bubble-font-max: 7rem;
+    --bubble-font-max: 4rem;
     
     --panel-width: 255px;         /* slim */
     --panel-height: 65vh;         /* tall, but leaves breathing room */
@@ -204,8 +204,8 @@ body {
     margin-right: 0.5rem;
 }
 .leaderboard-header .title {
-    font-size: 1.3rem;
-    font-weight: 600;
+    font-size: 1.1rem;
+    font-weight: 500;
     color: var(--text-color);
     margin: 0;
 }
@@ -286,7 +286,7 @@ body {
     padding: 0.8rem 1rem;
     border-bottom: var(--border-thick);
     text-align: center;
-    font-size: 1.2rem;
+    font-size: 1rem;
     font-weight: 600;
     color: var(--text-color);
 }
@@ -306,8 +306,8 @@ body {
     scrollbar-gutter: stable both-edges;
 }
 .live-log li {
-    padding: 0.4rem 0;
-    font-size: 0.85rem;
+    padding: 0.2rem 0;
+    font-size: 0.55rem;
     color: var(--text-color);
 }
 

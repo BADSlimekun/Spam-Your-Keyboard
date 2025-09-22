@@ -74,21 +74,70 @@ const getOrCreateUserID = () => {
     }
     return id;
 }
+const USERNAME_MAX = 10;
+const USERNAME_PATTERN = /^[A-Za-z0-9_-]{1,10}$/;
 
-const getOrCreateUserName = () => {
-    let name = localStorage.getItem('username');
-    if (!name) {
-        //ask, then trim to 16 chars and strip disallowed chars
-        let input = prompt("Enter nickname (1-16 chars):") || `Anon-${Math.floor(Math.random()*10000)}`;
-        input = input.trim().substring(0, 16);
-        //only allow letters, numbers, underscores or hyphens
-        name = input.replace(/[^\w-]/g) || `Anon-${Math.floor(Math.random()*10000)}`;
-        localStorage.setItem('username', name);
-    }
-    return name;
+function normalizeUsername(raw) {
+  if (typeof raw !== "string") return "";
+  // Trim, collapse whitespace 
+  const trimmed = raw.trim();
+  // Current rule set: only A–Z a–z 0–9 _ -
+  const cleaned = trimmed.replace(/[^A-Za-z0-9_-]/g, "");
+  return cleaned.slice(0, USERNAME_MAX);
 }
 
-//Sounds (Older Html Audio pool removed -- Check version control)
+function isValidUsername(name) {
+  return USERNAME_PATTERN.test(name);
+}
+
+function makeAnon() {
+  return `Anon-${Math.floor(Math.random() * 10000)}`.slice(0, USERNAME_MAX);
+}
+
+function getOrCreateUserName() {
+  let stored = localStorage.getItem("username");
+
+  //normalize + re-validate old ones
+  if (stored) {
+    const norm = normalizeUsername(stored);
+    if (isValidUsername(norm)) {
+      if (norm !== stored) localStorage.setItem("username", norm);
+      return norm;
+    }
+  }
+
+  while (true) {
+    let input = prompt(`Pick a username (1–${USERNAME_MAX} chars).\nAllowed: letters, numbers, _ and -`);
+    if (input === null) { // user pressed Cancel
+      const anon = makeAnon();
+      localStorage.setItem("username", anon);
+      alert(`Using default name: ${anon}`);
+      return anon;
+    }
+
+    const candidate = normalizeUsername(input);
+
+    if (candidate.length === 0) {
+      alert("Username can't be empty after cleanup. Try again.");
+      continue;
+    }
+    if (candidate.length > USERNAME_MAX) {
+      // (normalize already slices, but keep this message for clarity if you relax normalize later)
+      alert(`Max ${USERNAME_MAX} characters. Try again.`);
+      continue;
+    }
+    if (!isValidUsername(candidate)) {
+      alert("Only letters, numbers, underscore (_) and hyphen (-) are allowed. Try again.");
+      continue;
+    }
+
+    localStorage.setItem("username", candidate);
+    return candidate;
+  }
+}
+
+
+//Sounds (Older Html Audio pool removed - revise version control for my older implementation)
 
 //Sounds 2.0 WebAudio soundpool
 let audioCtx;
@@ -189,7 +238,8 @@ function renderLeaderboard(leaders) {
 
         const name = document.createElement("span");
         name.classList.add("name");
-        name.textContent = `${username}`;
+        // name.textContent = `${username}`;
+        name.textContent = String(username || makeAnon()).slice(0, USERNAME_MAX);
 
         const score = document.createElement("span");
         score.classList.add("name");
