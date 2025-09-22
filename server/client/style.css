@@ -200,12 +200,12 @@ body {
     background: rgba(255,255,255,0.4);
 }
 .leaderboard-header .trophy-icon {
-    font-size: 1.4rem;
+    font-size: 1.1rem;
     margin-right: 0.5rem;
 }
 .leaderboard-header .title {
     font-size: 1.1rem;
-    font-weight: 500;
+    font-weight: 600;
     color: var(--text-color);
     margin: 0;
 }
@@ -242,7 +242,7 @@ body {
 /* Highlight top 3 */
 .leaderboard li:nth-child(1) {
     font-size: 16px;
-    font-weight: 650;
+    font-weight: 600;
 }
 .leaderboard li:nth-child(2) {
     font-size: 15px;
@@ -306,8 +306,8 @@ body {
     scrollbar-gutter: stable both-edges;
 }
 .live-log li {
-    padding: 0.2rem 0;
-    font-size: 0.55rem;
+    padding: 0.3rem 0;
+    font-size: 0.8rem;
     color: var(--text-color);
 }
 
