@@ -273,7 +273,7 @@ function updateBubbleSize() {
     // if (bubbleCount > 20000) {x = 20000; threshold = 20000;}
     // if (bubbleCount > 40000) {x = 40000; threshold = 60000;}
     // if (bubbleCount > 100000) {x = 100000; threshold = 150000;}
-    newSize = Math.min(minF + (maxF - minF) * ((bubbleCount-x) / threshold), maxF); 
+    let newSize = Math.min(minF + (maxF - minF) * ((bubbleCount-x) / threshold), maxF); 
     bubbleDisplay.style.fontSize = `${newSize}rem`;
 }
 
@@ -389,7 +389,7 @@ function handleInput(e) {
             bubbleCount = 0;
             updateBubbleDisplay();
         }
-    },500); //update this in due time
+    },1000); //update this in due time
 }
 
 document.addEventListener("keydown", (e) => {
@@ -453,16 +453,44 @@ socket.on('onlineCount', count => {
 });
 
 //Append each user‐increment to the live log
-socket.on('log', ({ username, increment }) => {
+// socket.on('log', ({ username, increment }) => {
     
-    const li = document.createElement('li');
-    li.textContent = `${username} added ${toShortForm(increment)}`;
-    liveLogList.appendChild(li);
-    // keep the feed to the last 50 entries
-    if (liveLogList.children.length > 50) {
+//     const li = document.createElement('li');
+//     li.textContent = `${username} added ${toShortForm(increment)}`;
+//     liveLogList.appendChild(li);
+//     // keep the feed to the last 50 entries
+//     if (liveLogList.children.length > 50) {
+//         liveLogList.removeChild(liveLogList.firstElementChild);
+//     }
+//     // auto‐scroll the newest message into view
+//     liveLogList.lastElementChild.scrollIntoView({ behavior: 'smooth' });
+// });
+
+// Add this helper once
+function appendLiveLogs(items) {
+    const frag = document.createDocumentFragment();
+    for (const { username, increment } of items) {
+        const li = document.createElement('li');
+        li.textContent = `${String(username || 'Anon').slice(0, USERNAME_MAX)} added ${toShortForm(increment)}`;
+        frag.appendChild(li);
+    }
+    liveLogList.appendChild(frag);
+
+    // keep last 50
+    while (liveLogList.children.length > 50) {
         liveLogList.removeChild(liveLogList.firstElementChild);
     }
-    // auto‐scroll the newest message into view
-    liveLogList.lastElementChild.scrollIntoView({ behavior: 'smooth' });
+    liveLogList.lastElementChild?.scrollIntoView({ behavior: 'smooth' });
+}
+
+// NEW: batched logs (server will emit 'log_batch' with an array)
+socket.on('log_batch', (batch) => {
+    if (Array.isArray(batch) && batch.length) appendLiveLogs(batch);
 });
+
+// Keep your existing single-log path (for compatibility)
+socket.on('log', ({ username, increment }) => {
+    appendLiveLogs([{ username, increment }]);
+});
+
 

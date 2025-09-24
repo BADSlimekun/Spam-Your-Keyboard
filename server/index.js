@@ -19,13 +19,6 @@ if (process.env.NODE_ENV !== 'production') {
     require('dotenv').config();
 }
 
-// normalize values
-// for (const k of ['UPSTASH_REDIS_URL', 'UPSTASH_REDIS_TOKEN']) {
-//   if (process.env[k]) {
-//     process.env[k] = process.env[k].replace(/\r/g, '').trim();
-//   }
-// }
-
 // console.log("URL:", JSON.stringify(process.env.UPSTASH_REDIS_URL));
 // console.log("TOKEN:", JSON.stringify(process.env.UPSTASH_REDIS_TOKEN));
 
@@ -100,6 +93,39 @@ async function getTopUsers(limit = 10) {
     }));
 }
 
+let latestCount = null;          // last known globalCount
+let needCountPush = false;       // dirty flag
+
+let lastLeaderboardPush = 0;     // time we last sent the leaderboard
+const LEADERBOARD_INTERVAL = 1000;   // 1s is plenty
+
+const logQueue = [];             // batch live logs
+const LOG_FLUSH_INTERVAL = 300;  // 300 ms
+const LOG_MAX_BATCH = 25;        // cap per flush
+
+// start periodic broadcasters once (after io is created)
+setInterval(async () => {
+  // count: send only when changed & throttled to this tick
+    if (needCountPush && latestCount !== null) {
+        io.emit('update', latestCount);
+        needCountPush = false;
+    }
+
+    // leaderboard: recompute & send at most once per interval
+    const now = Date.now();
+    if (now - lastLeaderboardPush >= LEADERBOARD_INTERVAL) {
+        const topUsers = await getTopUsers();
+        io.emit('leaderboard', topUsers);
+        lastLeaderboardPush = now;
+    }
+
+    // logs: flush in small batches
+    if (logQueue.length) {
+        const batch = logQueue.splice(0, LOG_MAX_BATCH);
+        io.emit('log_batch', batch); // client renders each line
+    }
+}, Math.min(LOG_FLUSH_INTERVAL, LEADERBOARD_INTERVAL));
+
 let currentOnline = 0;
 
 io.on('connection', (socket) => {
@@ -116,10 +142,14 @@ io.on('connection', (socket) => {
     })
 
     //Handle increment events (the stuff that will increase the count)
-    socket.on('increment', async ({userID,username,amount}) => {
+    socket.on('increment', async ({userID,username,amount,rid}) => {
+        //,userID,username,amount
+        //tesdt
+        if (rid !== undefined) socket.emit('ack', { rid });
+        
         // --- SANITY: cap & sanitize username to 16 chars, no funny business ---
         let cleanName = username.trim().substring(0, 16);
-        cleanName = cleanName.replace(/[^\w-]/g) || 'Anonymous';
+        cleanName = cleanName.replace(/[^\w-]/g, '') || 'Anonymous';
 
         //UserID tamper protection
         if (!socket.userID) {
@@ -128,28 +158,28 @@ io.on('connection', (socket) => {
         }
 
         if (socket.userID !== userID) {
-            console.warn(`⚠️ Bro tried to change userID lmao: ${socket.id}`);
+            console.warn(`tried to change userID lmao: ${socket.id}`);
             return;     //add some popup something
         }
-
-        // await incrementGlobalCount(amount); //UNUSED (packaged below)
-        // await updateUserScore(userID,username,amount); //UNUSED (packaged below)
-
         //batch redis updates
         const[ , , newCount] = await redis
-        .multi()
-        .hset('usernames',{[userID]:cleanName})
-        .zincrby('leaderboard',amount,userID)
-        .incrby('globalCount',amount)
-        .exec(); 
-        //[,, newCount] done for array destructuring and pulling out third element(incrby) of exec() returns
+           .multi()
+           .hset('usernames',{[userID]:cleanName})
+           .zincrby('leaderboard',amount,userID)
+           .incrby('globalCount',amount)
+           .exec(); 
 
-        const globalCount = parseInt(newCount, 10);
-        const topUsers = await getTopUsers(); 
-        // console.log('⬆️ increment payload:', { userID, username, amount });
-        io.emit('update', globalCount); //Broadcast the globalCount to everyone
-        io.emit('leaderboard', topUsers); //Broadcase the leaderboard again
-        io.emit('log', { username:cleanName, increment:amount }); //Broadcast to all users the live log
+        //[,, newCount] done for array destructuring and pulling out third element(incrby) of exec() returns
+        
+
+        // const globalCount = parseInt(newCount, 10);
+        // const topUsers = await getTopUsers(); 
+        latestCount  = parseInt(newCount, 10);
+        needCountPush = true;
+        logQueue.push({ username: cleanName, increment: amount, ts: Date.now() });
+        // io.emit('update', globalCount); //Broadcast the globalCount to everyone
+        // io.emit('leaderboard', topUsers); //Broadcase the leaderboard again
+        // io.emit('log', { username:cleanName, increment:amount }); //Broadcast to all users the live log
     });
     socket.on('disconnect', () => {
         console.log('⭕ Disconnected:', socket.id);
@@ -157,6 +187,8 @@ io.on('connection', (socket) => {
         io.emit('onlineCount', currentOnline);
     });
 });
+
+
 
 server.listen(3000, "0.0.0.0", () => {
     console.log('✅ Server running at http://IP:3000');
