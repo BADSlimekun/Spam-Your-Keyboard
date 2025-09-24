@@ -61,7 +61,7 @@ app.get(/^\/[^:]*$/, (req, res) => {
 });
 
 //Leaderboard Method()
-async function getTopUsers(limit = 10) {
+async function getTopUsers(limit = 20) {
     //get top N userIDs + scores
     
     const raw = await redis.zrange('leaderboard', 0, limit - 1, {

@@ -3,7 +3,7 @@ const { io } = require('socket.io-client');
 const { randomUUID } = require('crypto');
 
 const TARGET = process.argv[2] || 'ws://127.0.0.1:3000';
-const NUM_CLIENTS = parseInt(process.env.CLIENTS || '200', 10);
+const NUM_CLIENTS = parseInt(process.env.CLIENTS || '15', 10);
 const KEYS_PER_SEC = 8, BURST_MS = 3000, GAP_MS = 1200;
 const SYNC = process.env.SYNC === '1';
 
