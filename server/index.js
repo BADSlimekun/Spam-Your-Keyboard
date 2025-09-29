@@ -7,13 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const { Redis } = require('@upstash/redis');
 
-// require('dotenv').config({ path: path.join(__dirname, '.env') });
-// const required = ['UPSTASH_REDIS_URL','UPSTASH_REDIS_TOKEN'];
-// const missing = required.filter(k => !process.env[k]);
-// if (missing.length) {
-//     console.error('Missing env:', missing.join(', '));
-//     process.exit(1);
-// }
+
 
 if (process.env.NODE_ENV !== 'production') {
     require('dotenv').config();
@@ -29,10 +23,14 @@ app.use(cors({ origin: "*" }));
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: "*", //we show all origins fr now //origin: "https://spamyourkeyboard.io" (deploy time)
+        origin: "*", 
         methods: ["GET","POST"]
     },
-    transports: ['websocket']
+    transports: ['websocket'],
+    perMessageDeflate: false,
+    httpCompression: false,
+    pingInterval: 20000,
+    pingTimeout: 20000,
 });
 
 //createClient() doesn't work with upstash damn
@@ -93,6 +91,8 @@ async function getTopUsers(limit = 20) {
     }));
 }
 
+
+
 let latestCount = null;          // last known globalCount
 let needCountPush = false;       // dirty flag
 
@@ -103,28 +103,101 @@ const logQueue = [];             // batch live logs
 const LOG_FLUSH_INTERVAL = 300;  // 300 ms
 const LOG_MAX_BATCH = 25;        // cap per flush
 
+// Leaderboard push gating 
+let needLeaderboardPush = false;   // set true when scores/usernames change
+let lbChangeUnits = 0;             // cheap threshold counter (e.g., #members touched)
+const LB_THRESHOLD = 3;            // don't refetch until we've batched a few changes
+let lastActivityTs = 0;            // last time we mutated names/scores
+const SLEEP_AFTER_MS = 30_000;     // after 30s of no mutations and no users, go idle
+let cachedTopUsers = [];           // optional small cache to reuse within an interval
+
+
+// batching buffers
+const pendUsernames = new Map();     // userID -> cleanName (last wins)
+const pendScores    = new Map();     // userID -> total delta since last flush
+let   pendGlobal    = 0;             // sum of all deltas
+const FLUSH_MS = 200;
+let flushing = false;
+
+setInterval(async () => {
+  if (flushing) return;
+
+  const hasOps = pendUsernames.size > 0 || pendScores.size > 0 || pendGlobal !== 0;
+  if (!hasOps) return;
+
+  try {
+    flushing = true;
+    const m = redis.multi();
+
+    if (pendUsernames.size) {
+      const obj = Object.fromEntries(pendUsernames);
+      m.hset('usernames', obj);
+    }
+    for (const [uid, delta] of pendScores) m.zincrby('leaderboard', delta, uid);
+    if (pendGlobal) m.incrby('globalCount', pendGlobal);
+
+    await m.exec();
+
+    // mark dirty / update counters only if names or scores changed 
+    const touchedNames  = pendUsernames.size > 0;
+    const touchedScores = pendScores.size > 0;
+    if (touchedNames || touchedScores) {
+      needLeaderboardPush = true;
+      lbChangeUnits += pendScores.size || 1; // count members touched (or 1 if only names changed)
+      lastActivityTs = Date.now();
+    }
+
+    if (pendGlobal) {
+      latestCount   = parseInt(await redis.get('globalCount'), 10);
+      needCountPush = true;
+    }
+
+    // clear buffers
+    pendUsernames.clear();
+    pendScores.clear();
+    pendGlobal = 0;
+  } catch (e) {
+    console.error('flush error', e);
+  } finally {
+    flushing = false;
+  }
+}, FLUSH_MS);
+
+
 // start periodic broadcasters once (after io is created)
 setInterval(async () => {
-  // count: send only when changed & throttled to this tick
-    if (needCountPush && latestCount !== null) {
-        io.emit('update', latestCount);
-        needCountPush = false;
-    }
+  const now = Date.now();
+  const hasAudience = currentOnline > 0;
+  const recentlyActive = (now - lastActivityTs) < SLEEP_AFTER_MS;
 
-    // leaderboard: recompute & send at most once per interval
-    const now = Date.now();
-    if (now - lastLeaderboardPush >= LEADERBOARD_INTERVAL) {
-        const topUsers = await getTopUsers();
-        io.emit('leaderboard', topUsers);
-        lastLeaderboardPush = now;
-    }
+  // If no users and no recent mutations, we're asleep: skip all Redis work
+  if (!hasAudience && !recentlyActive) return;
 
-    // logs: flush in small batches
-    if (logQueue.length) {
-        const batch = logQueue.splice(0, LOG_MAX_BATCH);
-        io.emit('log_batch', batch); // client renders each line
+  // Count: only emit when changed, and only if someone’s listening
+  if (hasAudience && needCountPush && latestCount !== null) {
+    io.emit('update', latestCount);
+    needCountPush = false;
+  }
+
+  // Leaderboard: emit at most once per interval *and* only if dirty and above threshold
+  if (hasAudience && needLeaderboardPush && (now - lastLeaderboardPush >= LEADERBOARD_INTERVAL)) {
+    if (lbChangeUnits >= LB_THRESHOLD) {
+      cachedTopUsers = await getTopUsers();
+      io.emit('leaderboard', cachedTopUsers);
+      lastLeaderboardPush = now;
+      needLeaderboardPush = false;
+      lbChangeUnits = 0;
     }
+    // else: not enough change yet; keep accumulating
+  }
+
+  // Logs: only bother if someone can see them
+  if (hasAudience && logQueue.length) {
+    const batch = logQueue.splice(0, LOG_MAX_BATCH);
+    io.emit('log_batch', batch);
+  }
 }, Math.min(LOG_FLUSH_INTERVAL, LEADERBOARD_INTERVAL));
+
 
 let currentOnline = 0;
 
@@ -162,20 +235,25 @@ io.on('connection', (socket) => {
             return;     //add some popup something
         }
         //batch redis updates
-        const[ , , newCount] = await redis
-           .multi()
-           .hset('usernames',{[userID]:cleanName})
-           .zincrby('leaderboard',amount,userID)
-           .incrby('globalCount',amount)
-           .exec(); 
+        // const[ , , newCount] = await redis
+        //    .multi()
+        //    .hset('usernames',{[userID]:cleanName})
+        //    .zincrby('leaderboard',amount,userID)
+        //    .incrby('globalCount',amount)
+        //    .exec(); 
+
 
         //[,, newCount] done for array destructuring and pulling out third element(incrby) of exec() returns
         
 
         // const globalCount = parseInt(newCount, 10);
         // const topUsers = await getTopUsers(); 
-        latestCount  = parseInt(newCount, 10);
-        needCountPush = true;
+        
+        // enqueue for batch flush
+        pendUsernames.set(userID, cleanName);
+        pendScores.set(userID, (pendScores.get(userID) || 0) + amount);
+        pendGlobal += amount;
+
         logQueue.push({ username: cleanName, increment: amount, ts: Date.now() });
         // io.emit('update', globalCount); //Broadcast the globalCount to everyone
         // io.emit('leaderboard', topUsers); //Broadcase the leaderboard again
@@ -194,8 +272,8 @@ server.listen(3000, "0.0.0.0", () => {
     console.log('✅ Server running at http://IP:3000');
 });
 
-//obtain port by the app engine
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`✅ Server listening on port ${PORT}`);
-});
+// //obtain port by the app engine
+// const PORT = process.env.PORT || 3000;
+// server.listen(PORT, () => {
+//     console.log(`✅ Server listening on port ${PORT}`);
+// });

@@ -3,8 +3,8 @@ const { io } = require('socket.io-client');
 const { randomUUID } = require('crypto');
 
 const TARGET = process.argv[2] || 'ws://127.0.0.1:3000';
-const NUM_CLIENTS = parseInt(process.env.CLIENTS || '15', 10);
-const KEYS_PER_SEC = 8, BURST_MS = 3000, GAP_MS = 1200;
+const NUM_CLIENTS = parseInt(process.env.CLIENTS || '1000', 10);
+const KEYS_PER_SEC = 10, BURST_MS = 4000, GAP_MS = 1200;
 const SYNC = process.env.SYNC === '1';
 
 const rtts = [];
@@ -61,7 +61,11 @@ setInterval(()=>{
   if (rtts.length>50000) rtts.splice(0, rtts.length-10000);
 }, 10000);
 
-process.on('SIGINT', ()=>{
+process.on('SIGINT', async ()=>{
+    const deadline = Date.now() + 1500; // 1.5s grace
+    while (inflight.size && Date.now() < deadline) {
+        await new Promise(r => setTimeout(r, 50));
+    } 
   console.log(`\n[RESULT] increments_sent=${sent} increments_acked=${acked} lost_inflight=${inflight.size} keypresses_simulated=${keypresses}`);
   process.exit(0);
 });
