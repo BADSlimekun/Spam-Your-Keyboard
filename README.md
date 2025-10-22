@@ -1,59 +1,113 @@
-SPAM YOUR F'ing KEYBOARD!
+SPAM YOUR KEYBOARD!
 -------------------------
 
-Project Description: A chaotic little web project that asks you to spam your keyboard like you just drank 12 Monsters and joined a Discord server.  
-Great for... undisclosable reasons. (And also a nice little Git playground 💅) -- Defenitely not written by ChwatGpT :D
+A real‑time **keyboard spammer + global leaderboard + live logs game** 
+
+* **Server:** Node.js + Express + Socket.IO
+* **Data:** Upstash Redis (ZSET leaderboard, HASH usernames, STRING globalCount)
+* **Key wins:** batched writes (`MULTI/EXEC`), thresholded leaderboard refresh, and **idle sleep** (no Redis reads when nobody’s online).
 
 ---
 
-## Features
+## Overview
 
-- 🔘 Real-time state of the art key spamming
-- 🔄 Global counter to track button abuse :')
-- 🔊 Sound/visual feedback for clicks (as my friend says, JUICY)
-- 🌐 Live updates across users (planned) [wym by planned? ofc its planned bruv]
+* Users mash keys (or clicks). Client buffers increments for 1s, then emits one `increment` to the server.
+* Server **coalesces** all user deltas and writes them to Redis in one shot per flush tick.
+* Leaderboard and global counter are only broadcast when they **actually change** and there’s an **audience**.
 
----
 
-## Project Structure (Atleast should've written this on my own -_-)
-
- 📦SpamYourKeyboard:
- 
-	SpamYourKeyboard/
-	├── client/           # Frontend (HTML, CSS, JS)
-	│   ├── index.html
-	│   ├── style.css
-	│   └── script.js
-	│
-	├── server/           # Backend (Node + Express + Socket.IO)
-	│   ├── index.js
-	│   └── package.json
-	│
-	├── .gitignore
-	├── README.md
-	
-
-## Goals
-
-To test:
-- Real-time interaction
-- Global state sharing
-- Scalable spam... responsibly :D ofcourse
+* Cuts Redis command rate under load; keeps the hot path O(1) per keypress (amortized).
+* Avoids pointless reads when idle. 
 
 ---
 
-## WARNING: Large chunk of genuine & unreadable description coming...
+## File structure
 
-#### Rough Overview:
- It will be a live web page hosted online accessible to mass online audience who can interact with the webpage. The webpage will be very simple, with a button in the center, which on clicking would increase the global counter above the button. The counter can be increased by anyone accessing the website, and it should be synchronized for all the users (as much as possible). 
+```
+repo/
+├─ index.js         # server: Express + Socket.IO, batching, Redis writes, broadcast loop
+├─ client/
+│  ├─ index.html    # minimal UI shell (served statically by Express)
+│  ├─ script.js     # client: username rules, WebSocket events, 1s buffering, combo system
+│  ├─ bonusWords.txt# word list for combo scoring (fetched by client)
+│  └─ click.mp3     # tap sound (WebAudio)
+└─ syk.cjs          # quick test script (Socket.IO load/poke harness)
+```
 
-#### Inspiration:
- This project idea is inspired from million checkboxes website on which many people online could check or uncheck the whole gird of checkboxes one by one, and it would show up live for others as well. The creator learned a lot about optimizing how to handle the data incoming from multiple users, how to handle load on its webpage, and how to reduce latency for re-rendering and everything. I want to also build a similar project and learn a lot from it.
+---
 
-#### Requirements:
- A large count showing field which is centered. An addictive juicy button (I'm thinking to go with "F") Referencing "F to pay respects". Pressing the F (either the key, or on the screen) should play click sounds in their devices, as well as followed by small faint +1s floating from the key  (like in games). And for each press of F, the count should update. (Or we can simply make it to be keyboard spamming thing, I think more people would like to randomly spam the keyboard than clicking the screen or pressing a single button)
+## Requirements
 
-#### Certain ideas:
- Well, the idea is simple on surface, but I want it to be built in such an industry standard way that it can handle concurrent 1000 people+ on the website, spamming the keyboard keys, with almost no lag. I am thinking to add a feature of bubble, which would store the persons number of key presses if the consecutive presses are closely timed enough, and then send that bubble amount once the person takes a gap (lets say we keep the gap like 1 second). So, the person should see his counts accumulating in a bubble like visual that shows the accumulated count by the user in the spam. And once he takes a break, the bubble disappears and gets added to the global total. This should even prevent the auto clickers to break the site.
+* Node.js 18+
+* An Upstash Redis database (HTTP/REST).
+* `.env` with:
 
+```
+UPSTASH_REDIS_URL=...
+UPSTASH_REDIS_TOKEN=...
+NODE_ENV=production
+PORT=3000
+```
 
+---
+
+## Quick start
+
+```bash
+npm ci
+node index.js
+# open http://localhost:3000 (served via Express)
+```
+
+---
+
+## How it works
+
+**Redis keys**
+
+* `leaderboard` (ZSET): member=`userID`, score=`total presses`.
+* `usernames` (HASH): `userID → sanitizedUsername`.
+* `globalCount` (STRING): total presses across all users.
+
+**Server loop**
+
+* Buffers: `pendUsernames`, `pendScores`, `pendGlobal`.
+* Every `FLUSH_MS` (200ms): one atomic `MULTI` with `HSET`, `ZINCRBY`, `INCRBY`.
+* Broadcast loop: only emits `leaderboard`/`update` if **dirty**, above a small **threshold**, and **users are connected**.
+
+**Client loop**
+
+* Buffers local `bubbleCount` for ~1s then `socket.emit("increment", { userID, username, amount })`.
+* Renders `leaderboard` and global count updates; enforces username rules (1–10 chars, `A–Z a–z 0–9 _ -`).
+
+---
+
+## Events
+
+**Client → Server**
+
+* `increment({ userID, username, amount, rid? })`
+
+**Server → Client**
+
+* `init({ count, leaderboard })`
+* `update(number)` – new global count
+* `leaderboard(Array<{userID, username, total}>)`
+* `onlineCount(number)`
+* `log_batch(Array<{username, increment}>)`
+
+---
+
+## Testing (syk.cjs)
+
+A small Socket.IO harness to simulate clients that send `increment` events and observe broadcasts and server requests.
+
+* Demonstrates **batching & back‑pressure**, **dirty‑bit broadcasting**, and **idle‑aware** operation.
+* Clear separation of concerns (client input → server buffer → atomic DB write → gated fan‑out).
+* Swappable Redis provider; Nginx/PM2 notes included for production hygiene.
+
+---
+
+## License
+
+MIT
