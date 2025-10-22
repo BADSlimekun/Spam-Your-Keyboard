@@ -81,7 +81,11 @@ async function getTopUsers(limit = 20) {
 
     const namesLookUp = await redis.hmget('usernames', ...userIds) || []; // {id:name , ...}
     const names =  userIds.map(id => namesLookUp[id] ?? null);
-    //[ "username1", "username2", … ] same length as userIds and in same sorted order
+    // const namesLookUp = await redis.hmget('usernames', ...userIds) || [];
+    // const names = userIds.map((_, i) => namesLookUp[i] ?? null);
+    
+
+
 
     //zip into the final array
     return userIds.map((id, i) => ({
@@ -120,36 +124,55 @@ const FLUSH_MS = 200;
 let flushing = false;
 
 setInterval(async () => {
+  // inside your setInterval flush block
   if (flushing) return;
-
   const hasOps = pendUsernames.size > 0 || pendScores.size > 0 || pendGlobal !== 0;
   if (!hasOps) return;
 
   try {
     flushing = true;
-    const m = redis.multi();
+    // console.log('FLUSH: pendUsernames=', pendUsernames.size, 'pendScores=', pendScores.size, 'pendGlobal=', pendGlobal);
 
+    // 1) ensure usernames
     if (pendUsernames.size) {
       const obj = Object.fromEntries(pendUsernames);
-      m.hset('usernames', obj);
+      await redis.hset('usernames', obj);
     }
-    for (const [uid, delta] of pendScores) m.zincrby('leaderboard', delta, uid);
-    if (pendGlobal) m.incrby('globalCount', pendGlobal);
 
-    await m.exec();
+    // 2) apply score deltas (zincrby) one-by-one and log results
+    for (const [uid, delta] of pendScores) {
+      const zv = await redis.zincrby('leaderboard', Number(delta), uid);
+      // console.log('zincrby', uid, 'delta=', delta, 'newScore=', zv);
+    }
 
-    // mark dirty / update counters only if names or scores changed 
+    // 3) safe globalCount incr
+    if (pendGlobal) {
+      // read current raw
+      const raw = await redis.get('globalCount');
+      console.log('globalCount raw before:', raw);
+
+      // if raw isn't an integer string, coerce it
+      if (!/^-?\d+$/.test(String(raw))) {
+        const coerced = Math.floor(Number(raw) || 0);
+        // console.warn('globalCount had non-integer value; coercing to', coerced);
+        await redis.set('globalCount', String(coerced));
+      }
+
+      // now incr safely
+      const newGlobal = await redis.incrby('globalCount', Number(pendGlobal));
+      // console.log('incrby pendGlobal=', pendGlobal, '=> new globalCount=', newGlobal);
+
+      latestCount = parseInt(String(newGlobal), 10) || 0;
+      needCountPush = true;
+    }
+
+    // mark leaderboard dirty if names or scores changed
     const touchedNames  = pendUsernames.size > 0;
     const touchedScores = pendScores.size > 0;
     if (touchedNames || touchedScores) {
       needLeaderboardPush = true;
-      lbChangeUnits += pendScores.size || 1; // count members touched (or 1 if only names changed)
+      lbChangeUnits += pendScores.size || 1;
       lastActivityTs = Date.now();
-    }
-
-    if (pendGlobal) {
-      latestCount   = parseInt(await redis.get('globalCount'), 10);
-      needCountPush = true;
     }
 
     // clear buffers
@@ -161,6 +184,7 @@ setInterval(async () => {
   } finally {
     flushing = false;
   }
+
 }, FLUSH_MS);
 
 
@@ -250,6 +274,8 @@ io.on('connection', (socket) => {
         // const topUsers = await getTopUsers(); 
         
         // enqueue for batch flush
+        amount = Number(amount) || 0;
+        if (amount <= 0) return;
         pendUsernames.set(userID, cleanName);
         pendScores.set(userID, (pendScores.get(userID) || 0) + amount);
         pendGlobal += amount;
